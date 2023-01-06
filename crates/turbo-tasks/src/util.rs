@@ -21,8 +21,11 @@ pub struct SharedError {
 
 impl SharedError {
     pub fn new(err: Error) -> Self {
-        Self {
-            inner: Arc::new(err),
+        match err.downcast::<SharedError>() {
+            Ok(shared) => shared,
+            Err(plain) => Self {
+                inner: Arc::new(plain),
+            },
         }
     }
 }
@@ -33,7 +36,7 @@ impl StdError for SharedError {
     }
 
     fn provide<'a>(&'a self, req: &mut std::any::Demand<'a>) {
-        Provider::provide(&*self.inner, req);
+        self.inner.provide(req);
     }
 }
 

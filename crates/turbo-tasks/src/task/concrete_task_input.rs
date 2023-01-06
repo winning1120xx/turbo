@@ -18,8 +18,7 @@ use crate::{
     manager::{read_task_cell, read_task_output},
     registry, turbo_tasks,
     value::{TransientInstance, TransientValue, Value},
-    value_type::TypedForInput,
-    CellId, RawVc, TaskId, TraitType, Typed, ValueTypeId,
+    CellId, RawVc, TaskId, TraitType, TypedForInput, ValueTypeId,
 };
 
 #[derive(Clone)]
@@ -323,15 +322,13 @@ impl<'de> Deserialize<'de> for SharedValue {
 
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum TaskInput {
+pub enum ConcreteTaskInput {
     TaskOutput(TaskId),
     TaskCell(TaskId, CellId),
-    List(Vec<TaskInput>),
+    List(Vec<ConcreteTaskInput>),
     String(String),
     Bool(bool),
     Usize(usize),
-    I16(i16),
-    U16(u16),
     I32(i32),
     U32(u32),
     U64(u64),
@@ -341,16 +338,16 @@ pub enum TaskInput {
     SharedReference(SharedReference),
 }
 
-impl TaskInput {
-    pub async fn resolve_to_value(self) -> Result<TaskInput> {
+impl ConcreteTaskInput {
+    pub async fn resolve_to_value(self) -> Result<ConcreteTaskInput> {
         let tt = turbo_tasks();
         let mut current = self;
         loop {
             current = match current {
-                TaskInput::TaskOutput(task_id) => {
+                ConcreteTaskInput::TaskOutput(task_id) => {
                     read_task_output(&*tt, task_id, false).await?.into()
                 }
-                TaskInput::TaskCell(task_id, index) => {
+                ConcreteTaskInput::TaskCell(task_id, index) => {
                     read_task_cell(&*tt, task_id, index).await?.into()
                 }
                 _ => return Ok(current),
@@ -358,26 +355,26 @@ impl TaskInput {
         }
     }
 
-    pub async fn resolve(self) -> Result<TaskInput> {
+    pub async fn resolve(self) -> Result<ConcreteTaskInput> {
         let tt = turbo_tasks();
         let mut current = self;
         loop {
             current = match current {
-                TaskInput::TaskOutput(task_id) => {
+                ConcreteTaskInput::TaskOutput(task_id) => {
                     read_task_output(&*tt, task_id, false).await?.into()
                 }
-                TaskInput::List(list) => {
+                ConcreteTaskInput::List(list) => {
                     if list.iter().all(|i| i.is_resolved()) {
-                        return Ok(TaskInput::List(list));
+                        return Ok(ConcreteTaskInput::List(list));
                     }
                     fn resolve_all(
-                        list: Vec<TaskInput>,
-                    ) -> Pin<Box<dyn Future<Output = Result<Vec<TaskInput>>> + Send>>
+                        list: Vec<ConcreteTaskInput>,
+                    ) -> Pin<Box<dyn Future<Output = Result<Vec<ConcreteTaskInput>>> + Send>>
                     {
                         use crate::TryJoinIterExt;
                         Box::pin(list.into_iter().map(|i| i.resolve()).try_join())
                     }
-                    return Ok(TaskInput::List(resolve_all(list).await?));
+                    return Ok(ConcreteTaskInput::List(resolve_all(list).await?));
                 }
                 _ => return Ok(current),
             }
@@ -386,7 +383,7 @@ impl TaskInput {
 
     pub fn get_task_id(&self) -> Option<TaskId> {
         match self {
-            TaskInput::TaskOutput(t) | TaskInput::TaskCell(t, _) => Some(*t),
+            ConcreteTaskInput::TaskOutput(t) | ConcreteTaskInput::TaskCell(t, _) => Some(*t),
             _ => None,
         }
     }
@@ -397,11 +394,11 @@ impl TaskInput {
         name: Cow<'static, str>,
     ) -> Result<FunctionId, Cow<'static, str>> {
         match self {
-            TaskInput::TaskOutput(_) | TaskInput::TaskCell(_, _) => {
+            ConcreteTaskInput::TaskOutput(_) | ConcreteTaskInput::TaskCell(_, _) => {
                 panic!("get_trait_method must be called on a resolved TaskInput")
             }
-            TaskInput::SharedValue(SharedValue(ty, _))
-            | TaskInput::SharedReference(SharedReference(ty, _)) => {
+            ConcreteTaskInput::SharedValue(SharedValue(ty, _))
+            | ConcreteTaskInput::SharedReference(SharedReference(ty, _)) => {
                 if let Some(ty) = *ty {
                     let key = (trait_type, name);
                     if let Some(func) = registry::get_value_type(ty).get_trait_method(&key) {
@@ -424,11 +421,11 @@ impl TaskInput {
 
     pub fn has_trait(&self, trait_type: TraitTypeId) -> bool {
         match self {
-            TaskInput::TaskOutput(_) | TaskInput::TaskCell(_, _) => {
+            ConcreteTaskInput::TaskOutput(_) | ConcreteTaskInput::TaskCell(_, _) => {
                 panic!("has_trait() must be called on a resolved TaskInput")
             }
-            TaskInput::SharedValue(SharedValue(ty, _))
-            | TaskInput::SharedReference(SharedReference(ty, _)) => {
+            ConcreteTaskInput::SharedValue(SharedValue(ty, _))
+            | ConcreteTaskInput::SharedReference(SharedReference(ty, _)) => {
                 if let Some(ty) = *ty {
                     registry::get_value_type(ty).has_trait(&trait_type)
                 } else {
@@ -441,11 +438,11 @@ impl TaskInput {
 
     pub fn traits(&self) -> Vec<&'static TraitType> {
         match self {
-            TaskInput::TaskOutput(_) | TaskInput::TaskCell(_, _) => {
+            ConcreteTaskInput::TaskOutput(_) | ConcreteTaskInput::TaskCell(_, _) => {
                 panic!("traits() must be called on a resolved TaskInput")
             }
-            TaskInput::SharedValue(SharedValue(ty, _))
-            | TaskInput::SharedReference(SharedReference(ty, _)) => {
+            ConcreteTaskInput::SharedValue(SharedValue(ty, _))
+            | ConcreteTaskInput::SharedReference(SharedReference(ty, _)) => {
                 if let Some(ty) = *ty {
                     registry::get_value_type(ty)
                         .traits_iter()
@@ -461,14 +458,14 @@ impl TaskInput {
 
     pub fn is_resolved(&self) -> bool {
         match self {
-            TaskInput::TaskOutput(_) => false,
-            TaskInput::List(list) => list.iter().all(|i| i.is_resolved()),
+            ConcreteTaskInput::TaskOutput(_) => false,
+            ConcreteTaskInput::List(list) => list.iter().all(|i| i.is_resolved()),
             _ => true,
         }
     }
 
     pub fn is_nothing(&self) -> bool {
-        matches!(self, TaskInput::Nothing)
+        matches!(self, ConcreteTaskInput::Nothing)
     }
 }
 
@@ -478,33 +475,33 @@ where
 {
     type Error;
 
-    fn try_from(value: &'a TaskInput) -> Result<Self, Self::Error>;
+    fn try_from(value: &'a ConcreteTaskInput) -> Result<Self, Self::Error>;
 }
 
-impl From<RawVc> for TaskInput {
+impl From<RawVc> for ConcreteTaskInput {
     fn from(raw_vc: RawVc) -> Self {
         match raw_vc {
-            RawVc::TaskOutput(task) => TaskInput::TaskOutput(task),
-            RawVc::TaskCell(task, i) => TaskInput::TaskCell(task, i),
+            RawVc::TaskOutput(task) => ConcreteTaskInput::TaskOutput(task),
+            RawVc::TaskCell(task, i) => ConcreteTaskInput::TaskCell(task, i),
         }
     }
 }
 
-impl From<CellContent> for TaskInput {
+impl From<CellContent> for ConcreteTaskInput {
     fn from(content: CellContent) -> Self {
         match content {
-            CellContent(None) => TaskInput::Nothing,
-            CellContent(Some(shared_ref)) => TaskInput::SharedReference(shared_ref),
+            CellContent(None) => ConcreteTaskInput::Nothing,
+            CellContent(Some(shared_ref)) => ConcreteTaskInput::SharedReference(shared_ref),
         }
     }
 }
 
-impl Display for TaskInput {
+impl Display for ConcreteTaskInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TaskInput::TaskOutput(task) => write!(f, "task output {}", task),
-            TaskInput::TaskCell(task, index) => write!(f, "cell {} in {}", index, task),
-            TaskInput::List(list) => write!(
+            ConcreteTaskInput::TaskOutput(task) => write!(f, "task output {}", task),
+            ConcreteTaskInput::TaskCell(task, index) => write!(f, "cell {} in {}", index, task),
+            ConcreteTaskInput::List(list) => write!(
                 f,
                 "list {}",
                 list.iter()
@@ -512,136 +509,122 @@ impl Display for TaskInput {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            TaskInput::String(s) => write!(f, "string {:?}", s),
-            TaskInput::Bool(b) => write!(f, "bool {:?}", b),
-            TaskInput::Usize(v) => write!(f, "usize {}", v),
-            TaskInput::I16(v) => write!(f, "i16 {}", v),
-            TaskInput::U16(v) => write!(f, "u16 {}", v),
-            TaskInput::I32(v) => write!(f, "i32 {}", v),
-            TaskInput::U32(v) => write!(f, "u32 {}", v),
-            TaskInput::U64(v) => write!(f, "u64 {}", v),
-            TaskInput::Nothing => write!(f, "nothing"),
-            TaskInput::SharedValue(_) => write!(f, "any value"),
-            TaskInput::TransientSharedValue(_) => write!(f, "any transient value"),
-            TaskInput::SharedReference(data) => {
+            ConcreteTaskInput::String(s) => write!(f, "string {:?}", s),
+            ConcreteTaskInput::Bool(b) => write!(f, "bool {:?}", b),
+            ConcreteTaskInput::Usize(v) => write!(f, "usize {}", v),
+            ConcreteTaskInput::I32(v) => write!(f, "i32 {}", v),
+            ConcreteTaskInput::U32(v) => write!(f, "u32 {}", v),
+            ConcreteTaskInput::U64(v) => write!(f, "u64 {}", v),
+            ConcreteTaskInput::Nothing => write!(f, "nothing"),
+            ConcreteTaskInput::SharedValue(_) => write!(f, "any value"),
+            ConcreteTaskInput::TransientSharedValue(_) => write!(f, "any transient value"),
+            ConcreteTaskInput::SharedReference(data) => {
                 write!(f, "shared reference with {}", data)
             }
         }
     }
 }
 
-impl From<String> for TaskInput {
+impl From<String> for ConcreteTaskInput {
     fn from(s: String) -> Self {
-        TaskInput::String(s)
+        ConcreteTaskInput::String(s)
     }
 }
 
-impl From<&str> for TaskInput {
+impl From<&str> for ConcreteTaskInput {
     fn from(s: &str) -> Self {
-        TaskInput::String(s.to_string())
+        ConcreteTaskInput::String(s.to_string())
     }
 }
 
-impl From<bool> for TaskInput {
+impl From<bool> for ConcreteTaskInput {
     fn from(b: bool) -> Self {
-        TaskInput::Bool(b)
+        ConcreteTaskInput::Bool(b)
     }
 }
 
-impl From<i16> for TaskInput {
-    fn from(v: i16) -> Self {
-        TaskInput::I16(v)
-    }
-}
-
-impl From<u16> for TaskInput {
-    fn from(v: u16) -> Self {
-        TaskInput::U16(v)
-    }
-}
-
-impl From<i32> for TaskInput {
+impl From<i32> for ConcreteTaskInput {
     fn from(v: i32) -> Self {
-        TaskInput::I32(v)
+        ConcreteTaskInput::I32(v)
     }
 }
 
-impl From<u32> for TaskInput {
+impl From<u32> for ConcreteTaskInput {
     fn from(v: u32) -> Self {
-        TaskInput::U32(v)
+        ConcreteTaskInput::U32(v)
     }
 }
 
-impl From<u64> for TaskInput {
+impl From<u64> for ConcreteTaskInput {
     fn from(v: u64) -> Self {
-        TaskInput::U64(v)
+        ConcreteTaskInput::U64(v)
     }
 }
 
-impl From<usize> for TaskInput {
+impl From<usize> for ConcreteTaskInput {
     fn from(v: usize) -> Self {
-        TaskInput::Usize(v)
+        ConcreteTaskInput::Usize(v)
     }
 }
 
-impl<T> From<Option<T>> for TaskInput
+impl<T> From<Option<T>> for ConcreteTaskInput
 where
-    TaskInput: From<T>,
+    ConcreteTaskInput: From<T>,
 {
     fn from(v: Option<T>) -> Self {
         match v {
-            None => TaskInput::Nothing,
+            None => ConcreteTaskInput::Nothing,
             Some(v) => {
                 let result = v.into();
                 // Option<Option<T>> leads to problems with using Some(None)
-                debug_assert!(result != TaskInput::Nothing);
+                debug_assert!(result != ConcreteTaskInput::Nothing);
                 result
             }
         }
     }
 }
 
-impl<T: Any + Debug + Clone + Hash + Eq + Ord + Typed + TypedForInput + Send + Sync + 'static>
-    From<Value<T>> for TaskInput
+impl<T: Any + Debug + Clone + Hash + Eq + Ord + TypedForInput + Send + Sync + 'static>
+    From<Value<T>> for ConcreteTaskInput
 where
     T: Serialize,
     for<'de2> T: Deserialize<'de2>,
 {
     fn from(v: Value<T>) -> Self {
         let raw_value: T = v.into_value();
-        TaskInput::SharedValue(SharedValue(
+        ConcreteTaskInput::SharedValue(SharedValue(
             Some(T::get_value_type_id()),
             Arc::new(raw_value),
         ))
     }
 }
 
-impl<T: MagicAny + 'static> From<TransientValue<T>> for TaskInput {
+impl<T: MagicAny + 'static> From<TransientValue<T>> for ConcreteTaskInput {
     fn from(v: TransientValue<T>) -> Self {
         let raw_value: T = v.into_value();
-        TaskInput::TransientSharedValue(TransientSharedValue(Arc::new(raw_value)))
+        ConcreteTaskInput::TransientSharedValue(TransientSharedValue(Arc::new(raw_value)))
     }
 }
 
-impl<T: Send + Sync + 'static> From<TransientInstance<T>> for TaskInput {
+impl<T: Send + Sync + 'static> From<TransientInstance<T>> for ConcreteTaskInput {
     fn from(v: TransientInstance<T>) -> Self {
-        TaskInput::SharedReference(v.into())
+        ConcreteTaskInput::SharedReference(v.into())
     }
 }
 
-impl<T: Into<TaskInput>> From<Vec<T>> for TaskInput {
+impl<T: Into<ConcreteTaskInput>> From<Vec<T>> for ConcreteTaskInput {
     fn from(s: Vec<T>) -> Self {
-        TaskInput::List(s.into_iter().map(|i| i.into()).collect())
+        ConcreteTaskInput::List(s.into_iter().map(|i| i.into()).collect())
     }
 }
 
 impl FromTaskInput<'_> for RawVc {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::TaskCell(task, index) => Ok(RawVc::TaskCell(*task, *index)),
-            TaskInput::TaskOutput(task) => Ok(RawVc::TaskOutput(*task)),
+            ConcreteTaskInput::TaskCell(task, index) => Ok(RawVc::TaskCell(*task, *index)),
+            ConcreteTaskInput::TaskOutput(task) => Ok(RawVc::TaskOutput(*task)),
             _ => Err(anyhow!("invalid task input type, expected RawVc")),
         }
     }
@@ -650,9 +633,9 @@ impl FromTaskInput<'_> for RawVc {
 impl FromTaskInput<'_> for String {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::String(str) => Ok(str.to_string()),
+            ConcreteTaskInput::String(str) => Ok(str.to_string()),
             _ => Err(anyhow!("invalid task input type, expected string")),
         }
     }
@@ -661,9 +644,9 @@ impl FromTaskInput<'_> for String {
 impl<'a> FromTaskInput<'a> for &'a str {
     type Error = anyhow::Error;
 
-    fn try_from(value: &'a TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::String(str) => Ok(str),
+            ConcreteTaskInput::String(str) => Ok(str),
             _ => Err(anyhow!("invalid task input type, expected string")),
         }
     }
@@ -672,9 +655,9 @@ impl<'a> FromTaskInput<'a> for &'a str {
 impl FromTaskInput<'_> for bool {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::Bool(b) => Ok(*b),
+            ConcreteTaskInput::Bool(b) => Ok(*b),
             _ => Err(anyhow!("invalid task input type, expected bool")),
         }
     }
@@ -683,9 +666,9 @@ impl FromTaskInput<'_> for bool {
 impl<'a, T: FromTaskInput<'a, Error = anyhow::Error>> FromTaskInput<'a> for Vec<T> {
     type Error = anyhow::Error;
 
-    fn try_from(value: &'a TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::List(list) => Ok(list
+            ConcreteTaskInput::List(list) => Ok(list
                 .iter()
                 .map(|i| FromTaskInput::try_from(i))
                 .collect::<Result<Vec<_>, _>>()?),
@@ -694,34 +677,12 @@ impl<'a, T: FromTaskInput<'a, Error = anyhow::Error>> FromTaskInput<'a> for Vec<
     }
 }
 
-impl FromTaskInput<'_> for u16 {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
-        match value {
-            TaskInput::U16(value) => Ok(*value),
-            _ => Err(anyhow!("invalid task input type, expected u16")),
-        }
-    }
-}
-
-impl FromTaskInput<'_> for i16 {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
-        match value {
-            TaskInput::I16(value) => Ok(*value),
-            _ => Err(anyhow!("invalid task input type, expected i16")),
-        }
-    }
-}
-
 impl FromTaskInput<'_> for u32 {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::U32(value) => Ok(*value),
+            ConcreteTaskInput::U32(value) => Ok(*value),
             _ => Err(anyhow!("invalid task input type, expected u32")),
         }
     }
@@ -730,9 +691,9 @@ impl FromTaskInput<'_> for u32 {
 impl FromTaskInput<'_> for i32 {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::I32(value) => Ok(*value),
+            ConcreteTaskInput::I32(value) => Ok(*value),
             _ => Err(anyhow!("invalid task input type, expected i32")),
         }
     }
@@ -741,9 +702,9 @@ impl FromTaskInput<'_> for i32 {
 impl FromTaskInput<'_> for u64 {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::U64(value) => Ok(*value),
+            ConcreteTaskInput::U64(value) => Ok(*value),
             _ => Err(anyhow!("invalid task input type, expected u64")),
         }
     }
@@ -752,9 +713,9 @@ impl FromTaskInput<'_> for u64 {
 impl FromTaskInput<'_> for usize {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::Usize(value) => Ok(*value),
+            ConcreteTaskInput::Usize(value) => Ok(*value),
             _ => Err(anyhow!("invalid task input type, expected usize")),
         }
     }
@@ -766,15 +727,15 @@ where
 {
     type Error = T::Error;
 
-    fn try_from(value: &'a TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::Nothing => Ok(None),
+            ConcreteTaskInput::Nothing => Ok(None),
             _ => Ok(Some(FromTaskInput::try_from(value)?)),
         }
     }
 }
 
-impl<T: Any + Debug + Clone + Hash + Eq + Ord + Typed + Send + Sync + 'static> FromTaskInput<'_>
+impl<T: Any + Debug + Clone + Hash + Eq + Ord + Send + Sync + 'static> FromTaskInput<'_>
     for Value<T>
 where
     T: Serialize,
@@ -782,9 +743,9 @@ where
 {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::SharedValue(value) => {
+            ConcreteTaskInput::SharedValue(value) => {
                 let v = value.1.downcast_ref::<T>().ok_or_else(|| {
                     anyhow!(
                         "invalid task input type, expected {} got {:?}",
@@ -805,9 +766,9 @@ where
 impl<T: MagicAny + Clone + 'static> FromTaskInput<'_> for TransientValue<T> {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::TransientSharedValue(value) => {
+            ConcreteTaskInput::TransientSharedValue(value) => {
                 let v = value.0.downcast_ref::<T>().ok_or_else(|| {
                     anyhow!(
                         "invalid task input type, expected {} got {:?}",
@@ -828,9 +789,9 @@ impl<T: MagicAny + Clone + 'static> FromTaskInput<'_> for TransientValue<T> {
 impl<T: Send + Sync + 'static> FromTaskInput<'_> for TransientInstance<T> {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::SharedReference(reference) => {
+            ConcreteTaskInput::SharedReference(reference) => {
                 if let Ok(i) = reference.clone().try_into() {
                     Ok(i)
                 } else {
@@ -849,60 +810,14 @@ impl<T: Send + Sync + 'static> FromTaskInput<'_> for TransientInstance<T> {
     }
 }
 
-impl TryFrom<&TaskInput> for RawVc {
+impl TryFrom<&ConcreteTaskInput> for RawVc {
     type Error = anyhow::Error;
 
-    fn try_from(value: &TaskInput) -> Result<Self, Self::Error> {
+    fn try_from(value: &ConcreteTaskInput) -> Result<Self, Self::Error> {
         match value {
-            TaskInput::TaskOutput(task) => Ok(RawVc::TaskOutput(*task)),
-            TaskInput::TaskCell(task, index) => Ok(RawVc::TaskCell(*task, *index)),
+            ConcreteTaskInput::TaskOutput(task) => Ok(RawVc::TaskOutput(*task)),
+            ConcreteTaskInput::TaskCell(task, index) => Ok(RawVc::TaskCell(*task, *index)),
             _ => Err(anyhow!("invalid task input type, expected cell ref")),
         }
     }
 }
-
-macro_rules! tuple_impls {
-    ( $( $name:ident )+ ) => {
-        impl<$($name: Into<TaskInput>),+> From<($($name,)+)> for TaskInput {
-            #[allow(non_snake_case)]
-            fn from(s: ($($name,)+)) -> Self {
-                let ($($name,)+) = s;
-                let ($($name,)+) = ($($name.into(),)+);
-                TaskInput::List(vec![ $($name,)+ ])
-            }
-        }
-
-        impl<'a, $($name: FromTaskInput<'a, Error = anyhow::Error>,)+> FromTaskInput<'a> for ($($name,)+) {
-            type Error = anyhow::Error;
-
-            #[allow(non_snake_case)]
-            fn try_from(value: &'a TaskInput) -> Result<Self, Self::Error> {
-                match value {
-                    TaskInput::List(value) => {
-                        let mut iter = value.iter();
-                        $(
-                            let $name = iter.next().ok_or_else(|| anyhow!("missing tuple element"))?;
-                            let $name = FromTaskInput::try_from($name)?;
-                        )+
-                        Ok(($($name,)+))
-                    },
-                    _ => Err(anyhow!("invalid task input type, expected list")),
-                }
-            }
-        }
-    };
-
-}
-
-tuple_impls! { A }
-tuple_impls! { A B }
-tuple_impls! { A B C }
-tuple_impls! { A B C D }
-tuple_impls! { A B C D E }
-tuple_impls! { A B C D E F }
-tuple_impls! { A B C D E F G }
-tuple_impls! { A B C D E F G H }
-tuple_impls! { A B C D E F G H I }
-tuple_impls! { A B C D E F G H I J }
-tuple_impls! { A B C D E F G H I J K }
-tuple_impls! { A B C D E F G H I J K L }
