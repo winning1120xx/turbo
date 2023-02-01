@@ -144,6 +144,7 @@ type GlobResp struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Response:
+	//
 	//	*GlobResp_Files
 	//	*GlobResp_Error
 	Response isGlobResp_Response `protobuf_oneof:"response"`
