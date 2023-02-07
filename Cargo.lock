@@ -2364,6 +2364,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "glob-match"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9985c9503b412198aa4197559e9a318524ebc4519c229bfa05a535828c950b9d"
+
+[[package]]
 name = "gloo-timers"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8014,6 +8020,7 @@ dependencies = [
  "directories",
  "prost",
  "prost-build",
+ "turborepo-lib",
 ]
 
 [[package]]
@@ -8036,6 +8043,7 @@ dependencies = [
  "dunce",
  "env_logger 0.10.0",
  "futures",
+ "glob-match",
  "hex",
  "indicatif",
  "itertools",
@@ -8064,6 +8072,7 @@ dependencies = [
  "tower",
  "turbo-updater",
  "url",
+ "walkdir",
  "webbrowser 0.8.6",
 ]
 

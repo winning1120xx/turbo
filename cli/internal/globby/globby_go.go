@@ -1,3 +1,6 @@
+//go:build go
+// +build go
+
 package globby
 
 import (

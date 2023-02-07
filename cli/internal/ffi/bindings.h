@@ -8,4 +8,6 @@ typedef struct Buffer {
   uint8_t *data;
 } Buffer;
 
+struct Buffer glob(struct Buffer args);
+
 struct Buffer get_turbo_data_dir(void);

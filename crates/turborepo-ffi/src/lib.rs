@@ -1,5 +1,7 @@
 use std::mem::ManuallyDrop;
 
+use turborepo_lib::globwalk;
+
 mod proto {
     include!(concat!(env!("OUT_DIR"), "/_.rs"));
 }
@@ -21,7 +23,6 @@ impl<T: prost::Message> From<T> for Buffer {
 }
 
 impl Buffer {
-    #[allow(dead_code)]
     fn into_proto<T: prost::Message + Default>(self) -> Result<T, prost::DecodeError> {
         // SAFETY
         // protobuf has a fairly strict schema so overrunning or underrunning the byte
@@ -30,6 +31,24 @@ impl Buffer {
         let mut slice = unsafe { std::slice::from_raw_parts(self.data, self.len as usize) };
         T::decode(&mut slice)
     }
+}
+
+#[no_mangle]
+pub extern "C" fn glob(args: Buffer) -> Buffer {
+    let params = args.into_proto::<proto::GlobReq>().unwrap();
+
+    proto::GlobResp {
+        response: Some(proto::glob_resp::Response::Files(proto::GlobRespList {
+            files: globwalk(
+                params.base_path.into(),
+                params.files_only,
+                &params.include_patterns,
+                &params.exclude_patterns,
+            )
+            .collect(),
+        })),
+    }
+    .into()
 }
 
 #[no_mangle]
