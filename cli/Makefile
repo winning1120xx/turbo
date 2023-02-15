@@ -38,7 +38,7 @@ turborepo-ffi-install: turborepo-ffi
 
 .PHONY: turborepo-ffi
 turborepo-ffi:
-	cd ../crates/turborepo-ffi && CARGO_TARGET_DIR=./target cargo build --release
+	cd ../crates/turborepo-ffi && cargo build --target-dir=./target --release
 
 .PHONY: turborepo-ffi-proto
 turborepo-ffi-proto:
