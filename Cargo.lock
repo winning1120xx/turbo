@@ -8143,6 +8143,7 @@ dependencies = [
  "config",
  "console",
  "dialoguer",
+ "directories",
  "dirs-next",
  "dunce",
  "env_logger 0.10.0",
@@ -8173,10 +8174,12 @@ dependencies = [
  "thiserror",
  "tiny-gradient",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
  "tower",
  "turbo-updater",
+ "uds_windows",
  "url",
  "webbrowser 0.8.7",
 ]
@@ -8209,6 +8212,16 @@ name = "ucd-trie"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e79c4d996edb816c91e4308506774452e55e95c3c9de07b6729e17e15a5ef81"
+
+[[package]]
+name = "uds_windows"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce65604324d3cce9b966701489fbd0cf318cb1f7bd9dd07ac9a4ee6fb791930d"
+dependencies = [
+ "tempfile",
+ "winapi 0.3.9",
+]
 
 [[package]]
 name = "unicase"

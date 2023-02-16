@@ -31,6 +31,7 @@ command-group = { version = "2.0.1", features = ["with-tokio"] }
 config = "0.13"
 console = "0.15.5"
 dialoguer = "0.10.3"
+directories = "4.0.1"
 dirs-next = "2.0.0"
 dunce = "1.0"
 env_logger = "0.10.0"
@@ -56,9 +57,11 @@ sysinfo = "0.27.7"
 thiserror = "1.0.38"
 tiny-gradient = "0.1"
 tokio = { version = "1.24.2", features = ["full", "time"] }
+tokio-stream = { version = "0.1.11", features = ["net"] }
 tonic = "0.8.3"
 tower = "0.4.13"
 turbo-updater = { path = "../turbo-updater" }
+uds_windows = "1.0.2"
 url = "2.3.1"
 webbrowser = "0.8.4"
 

@@ -477,20 +477,15 @@ pub async fn run(repo_state: Option<RepoState>) -> Result<Payload> {
 
             Ok(Payload::Rust(Ok(0)))
         }
-        Command::Daemon {
-            command: Some(command),
-            ..
-        } => {
+        Command::Daemon { command, .. } => {
             let command = command.clone();
             let base = CommandBase::new(clap_args, repo_root)?;
             daemon::main(&command, &base).await?;
             Ok(Payload::Rust(Ok(0)))
-        },
-        Command::Unlink { .. }
-        | Command::Prune { .. }
-        | Command::Run(_)
-        // the daemon itself still delegates to Go
-        | Command::Daemon { .. } => Ok(Payload::Go(Box::new(clap_args))),
+        }
+        Command::Unlink { .. } | Command::Prune { .. } | Command::Run(_) => {
+            Ok(Payload::Go(Box::new(clap_args)))
+        }
         Command::Completion { shell } => {
             generate(*shell, &mut Args::command(), "turbo", &mut io::stdout());
 

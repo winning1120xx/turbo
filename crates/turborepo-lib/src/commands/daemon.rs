@@ -1,5 +1,9 @@
 use std::{path::PathBuf, time::Duration};
 
+use log::debug;
+use tokio::{join, net::UnixStream};
+use tonic::transport::Server;
+
 use super::CommandBase;
 use crate::{
     cli::DaemonCommand,
@@ -7,7 +11,12 @@ use crate::{
 };
 
 /// Runs the daemon command.
-pub async fn main(command: &DaemonCommand, base: &CommandBase) -> Result<(), DaemonError> {
+pub async fn main(command: &Option<DaemonCommand>, base: &CommandBase) -> Result<(), DaemonError> {
+    let command = match command {
+        Some(command) => command,
+        None => return run_daemon(base).await,
+    };
+
     let (can_start_server, can_kill_server) = match command {
         DaemonCommand::Status { .. } => (false, false),
         DaemonCommand::Restart | DaemonCommand::Stop => (false, true),
@@ -54,6 +63,13 @@ pub async fn main(command: &DaemonCommand, base: &CommandBase) -> Result<(), Dae
             }
         }
     };
+
+    Ok(())
+}
+
+pub async fn run_daemon(base: &CommandBase) -> Result<(), DaemonError> {
+    let server = crate::daemon::DaemonServer::new(&base, Duration::from_secs(60 * 60 * 4));
+    server.serve().await;
 
     Ok(())
 }

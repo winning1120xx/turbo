@@ -10,11 +10,10 @@ use log::{debug, error};
 use notify::{Config, Event, EventKind, Watcher};
 use sysinfo::{ProcessExt, ProcessRefreshKind, RefreshKind, SystemExt};
 use thiserror::Error;
-use tokio::{net::UnixStream, sync::mpsc, time::timeout};
-use tonic::transport::Endpoint;
+use tokio::{sync::mpsc, time::timeout};
 
-use super::{client::proto::turbod_client::TurbodClient, DaemonClient};
-use crate::daemon::DaemonError;
+use super::DaemonClient;
+use crate::daemon::{endpoint::get_channel, proto::turbod_client::TurbodClient, DaemonError};
 
 #[derive(Error, Debug)]
 pub enum DaemonConnectorError {
@@ -149,18 +148,9 @@ impl DaemonConnector {
         path: PathBuf,
     ) -> Result<TurbodClient<tonic::transport::Channel>, DaemonConnectorError> {
         debug!("connecting to socket: {}", path.to_string_lossy());
-        let arc = Arc::new(path);
 
         // note, this endpoint is just a dummy. the actual path is passed in
-        let channel = match Endpoint::try_from("http://[::]:50051")
-            .expect("this is a valid uri")
-            .connect_with_connector(tower::service_fn(move |_| {
-                // we clone the reference counter here and move it into the async closure
-                let arc = arc.clone();
-                async move { UnixStream::connect::<&Path>(arc.as_path()).await }
-            }))
-            .await
-        {
+        let channel = match get_channel(path).await {
             Ok(c) => c,
             Err(e) => {
                 error!("failed to connect to socket: {}", e);

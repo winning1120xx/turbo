@@ -1,13 +1,11 @@
 use thiserror::Error;
 use tonic::{Code, Status};
 
-use self::proto::turbod_client::TurbodClient;
-use super::connector::{DaemonConnector, DaemonConnectorError};
+use super::{
+    connector::{DaemonConnector, DaemonConnectorError},
+    proto::{self, turbod_client::TurbodClient},
+};
 use crate::get_version;
-
-pub mod proto {
-    tonic::include_proto!("turbodprotocol");
-}
 
 #[derive(Debug)]
 pub struct DaemonClient<T> {

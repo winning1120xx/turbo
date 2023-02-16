@@ -3,6 +3,7 @@ mod client;
 mod commands;
 mod config;
 mod daemon;
+pub(crate) mod globwatcher;
 mod package_manager;
 mod retry;
 mod shim;
