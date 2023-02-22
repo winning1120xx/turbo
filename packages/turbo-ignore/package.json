@@ -24,7 +24,7 @@
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "check-types": "tsc --noEmit",
-    "check:prettier": "prettier -c . --ignore-path=../../.prettierignore"
+    "lint:prettier": "prettier -c . --ignore-path=../../.prettierignore"
   },
   "devDependencies": {
     "@types/jest": "^27.4.0",

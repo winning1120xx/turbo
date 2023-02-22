@@ -19,7 +19,7 @@
     "lint": "eslint src/**/*.ts",
     "check-types": "tsc --noEmit",
     "add-transformer": "plop",
-    "check:prettier": "prettier -c . --ignore-path=../../.prettierignore"
+    "lint:prettier": "prettier -c . --ignore-path=../../.prettierignore"
   },
   "dependencies": {
     "axios": "0.27.2",

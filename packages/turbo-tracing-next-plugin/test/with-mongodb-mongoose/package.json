@@ -5,7 +5,7 @@
     "dev": "next dev",
     "build": "cross-env MONGODB_URI=localhost:27017 next build",
     "start": "next start",
-    "check:prettier": "prettier -c ."
+    "lint:prettier": "prettier -c ."
   },
   "dependencies": {
     "mongoose": "^6.4.5",

@@ -11,7 +11,7 @@
     "url": "https://github.com/vercel/turbo/issues"
   },
   "scripts": {
-    "check:prettier": "prettier -c ."
+    "lint:prettier": "prettier -c ."
   },
   "keywords": [
     "turbo",

@@ -15,6 +15,6 @@
   },
   "scripts": {
     "lint": "eslint src/**/*.ts",
-    "check:prettier": "prettier -c ."
+    "lint:prettier": "prettier -c ."
   }
 }

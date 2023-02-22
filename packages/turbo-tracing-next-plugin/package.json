@@ -21,6 +21,6 @@
   },
   "scripts": {
     "lint": "eslint src/**/*.ts",
-    "check:prettier": "prettier -c . --ignore-path=../../.prettierignore"
+    "lint:prettier": "prettier -c . --ignore-path=../../.prettierignore"
   }
 }
