@@ -11,9 +11,9 @@
     // root lint task runs toml check and prettier
     // TODO: run prettier in individual workspaces instead of globally.
     "//#lint": {
-      "dependsOn": ["//#check:toml", "//#check:prettier"]
+      "dependsOn": ["//#check:toml", "check:prettier"]
     },
-    "//#check:prettier": {},
+    "check:prettier": {},
     "//#check:toml": {},
     "check-types": {
       "dependsOn": ["//#build:ts", "^build"]

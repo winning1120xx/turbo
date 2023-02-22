@@ -1,6 +1,6 @@
 .next/
 build/
-dist/
+dist
 node_modules/
 target/
 coverage/

@@ -18,7 +18,8 @@
   },
   "scripts": {
     "lint": "eslint src/**/*.ts",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "check:prettier": "prettier -c ."
   },
   "devDependencies": {
     "@types/fs-extra": "^9.0.13",

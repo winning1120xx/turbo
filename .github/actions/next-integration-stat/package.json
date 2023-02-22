@@ -2,7 +2,8 @@
   "private": true,
   "main": "src/index.js",
   "scripts": {
-    "pack": "ncc -t -o . build src/index.ts"
+    "pack": "ncc -t -o . build src/index.ts",
+    "check:prettier": "prettier -c ."
   },
   "devDependencies": {
     "@types/node": "^18.11.18",

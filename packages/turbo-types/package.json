@@ -14,6 +14,7 @@
     "tsconfig": "workspace:*"
   },
   "scripts": {
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "check:prettier": "prettier -c ."
   }
 }
