@@ -39,3 +39,9 @@ pub fn main() -> Payload {
         }
     }
 }
+
+#[cfg(all(feature = "native-tls", feature = "rustls-tls"))]
+compile_error!("You can't enable both the `native-tls` and `rustls-tls` feature.");
+
+#[cfg(all(not(feature = "native-tls"), not(feature = "rustls-tls")))]
+compile_error!("You have to enable one of the TLS features: `native-tls` or `rustls-tls`");
