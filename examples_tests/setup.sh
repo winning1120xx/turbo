@@ -44,8 +44,8 @@ elif [ "$pkgManager" == "yarn" ]; then
   yarn install > /dev/null
 fi
 
-# Setup Git things (this is similar to integration_tests/setup_git.sh, but doesn't touch npm)
-# # Delete .git directory if it's there, we'll set up a new git repo
+# Delete .git directory if it's there, we'll set up a new git repo
 [ ! -d .git ] || rm -rf .git
-# Second arg passed is false, which will skip the npm install in setup_git.sh
+
+# Second param is false, which will skip the npm install in setup_git.sh
 "${SCRIPT_DIR}/../cli/integration_tests/setup_git.sh" "${TARGET_DIR}" "false"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 TARGET_DIR=$1
+
+# If a second parameter isn't passed, default to true
 SHOULD_INSTALL=${2:-true}
 
 git init ${TARGET_DIR} --quiet --initial-branch=main
