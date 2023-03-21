@@ -24,6 +24,10 @@ pub fn node_build_environment() -> EnvironmentVc {
     )
 }
 
+pub fn a() -> EnvironmentVc {
+    //should fail to build
+}
+
 #[turbo_tasks::function]
 pub async fn node_evaluate_asset_context(
     project_path: FileSystemPathVc,
