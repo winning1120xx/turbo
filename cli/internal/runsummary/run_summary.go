@@ -109,9 +109,12 @@ func (rsm *Meta) Close(dir turbopath.AbsoluteSystemPath) {
 		}
 
 		if rsm.spaceID != "" && rsm.apiClient.IsLinked() {
+			fmt.Printf("[debug] about to record the vercel run to %s\n", rsm.spaceID)
 			if err := rsm.record(); err != nil {
 				rsm.ui.Warn(fmt.Sprintf("Error recording Run to Vercel: %v", err))
 			}
+		} else {
+			fmt.Printf("[debug] skipping post sadface\n")
 		}
 	}
 }
@@ -144,7 +147,7 @@ func (rsm *Meta) save(dir turbopath.AbsoluteSystemPath) error {
 
 // record sends the summary to the API
 // TODO: make this work for single package tasks
-func (rsm *Meta) record() []error {
+func (rsm *Meta) record() error {
 	errs := []error{}
 
 	// Right now we'll send the POST to create the Run and the subsequent task payloads
@@ -155,10 +158,12 @@ func (rsm *Meta) record() []error {
 	payload := newVercelRunCreatePayload(rsm.RunSummary)
 	if startPayload, err := json.Marshal(payload); err == nil {
 		if resp, err := rsm.apiClient.JSONPost(runsURL, startPayload); err != nil {
+			fmt.Printf("[debug] oops with post request %#v\n", err)
 			errs = append(errs, err)
 		} else {
-			vercelRunResponse := &vercelRunResponse{}
-			if err := json.Unmarshal(resp, vercelRunResponse); err != nil {
+			var vercelRunResponse vercelRunResponse
+			if err := json.Unmarshal(resp, &vercelRunResponse); err != nil {
+				fmt.Printf("[debug] oops unmarshaling vercel run response %#v\n", err)
 				errs = append(errs, err)
 			} else {
 				runID = vercelRunResponse.ID
@@ -171,13 +176,14 @@ func (rsm *Meta) record() []error {
 
 		if donePayload, err := json.Marshal(newVercelDonePayload()); err == nil {
 			if _, err := rsm.apiClient.JSONPatch(runsURL, donePayload); err != nil {
+				fmt.Printf("[debug] failed to PATCH %#v\n", err)
 				errs = append(errs, err)
 			}
 		}
 	}
 
 	if len(errs) > 0 {
-		return errs
+		return errs[0]
 	}
 
 	return nil
