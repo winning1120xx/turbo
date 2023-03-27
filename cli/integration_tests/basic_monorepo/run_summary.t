@@ -47,12 +47,14 @@ Setup
     "startTime": [0-9]+, (re)
     "endTime": [0-9]+, (re)
     "status": "built",
-    "error": null
+    "error": null,
+    "exitCode": 0
   }
   $ echo $FIRST_APP_BUILD | jq '.commandArguments'
   [
     "someargs"
   ]
+
   $ echo $FIRST_APP_BUILD | jq '.hashOfExternalDependencies'
   "ccab0b28617f1f56"
   $ echo $FIRST_APP_BUILD | jq '.expandedOutputs'
@@ -77,7 +79,8 @@ Setup
     "startTime": [0-9]+, (re)
     "endTime": [0-9]+, (re)
     "status": "built",
-    "error": null
+    "error": null,
+    "exitCode": 0
   }
 
 # another#build is not in tasks, because it didn't execute (script was not implemented)
