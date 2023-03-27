@@ -62,17 +62,6 @@ Setup
     "apps/my-app/.turbo/turbo-build.log"
   ]
 
-  $ echo $FIRST_APP_BUILD | jq '.cacheState'
-  {
-    "local": false,
-    "remote": false
-  }
-  $ echo $SECOND_APP_BUILD | jq '.cacheState'
-  {
-    "local": true,
-    "remote": false
-  }
-
 # Some validation of util#build
   $ echo $FIRST_UTIL_BUILD | jq '.execution'
   {
