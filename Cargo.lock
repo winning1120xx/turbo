@@ -2342,6 +2342,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9985c9503b412198aa4197559e9a318524ebc4519c229bfa05a535828c950b9d"
 
 [[package]]
+name = "globwalk"
+version = "0.1.0"
+dependencies = [
+ "glob-match",
+ "turborepo-paths",
+ "walkdir",
+]
+
+[[package]]
 name = "gloo-timers"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7943,6 +7952,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "directories",
+ "globwalk",
  "prost",
  "prost-build",
  "thiserror",
