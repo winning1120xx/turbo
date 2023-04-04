@@ -9,3 +9,6 @@ edition = "2021"
 glob-match = "0.2.1"
 turborepo-paths = { version = "0.1.0", path = "../turborepo-paths" }
 walkdir = "2.3.3"
+
+[dev-dependencies]
+test-case = "3.1.0"

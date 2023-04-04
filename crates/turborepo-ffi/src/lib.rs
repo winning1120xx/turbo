@@ -140,23 +140,20 @@ pub extern "C" fn glob(buffer: Buffer) -> Buffer {
         false => globwalk::WalkType::All,
     };
 
-    let response = match globwalk(
+    let result = globwalk(
         req.base_path.try_into().unwrap(),
         &req.include_patterns,
         &req.exclude_patterns,
         walk_type,
-    ) {
-        Ok(files) => proto::glob_resp::Response::Files(proto::GlobRespList {
-            files: files
-                .iter()
-                .map(|p| p.to_string_lossy().to_string())
-                .collect(),
-        }),
-        Err(e) => proto::glob_resp::Response::Error(e.to_string()),
-    };
+    )
+    .map(|res| res.map(|p| p.to_string_lossy().to_string()))
+    .collect();
 
     proto::GlobResp {
-        response: Some(response),
+        response: Some(match result {
+            Ok(files) => proto::glob_resp::Response::Files(proto::GlobRespList { files }),
+            Err(e) => proto::glob_resp::Response::Error(e.to_string()),
+        }),
     }
     .into()
 }
