@@ -213,7 +213,7 @@ build-go-turbo-darwin:
 
 .PHONY: build-go-turbo-cross
 build-go-turbo-cross:
-	goreleaser release --rm-dist -f cross-release.yml
+	goreleaser release --rm-dist --snapshot -f cross-release.yml
 
 .PHONY: build-lib-turbo-cross
 build-lib-turbo-cross:
