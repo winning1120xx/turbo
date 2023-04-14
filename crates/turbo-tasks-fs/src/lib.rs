@@ -5,6 +5,8 @@
 #![feature(io_error_more)]
 #![feature(box_syntax)]
 #![feature(round_char_boundary)]
+#![feature(async_fn_in_trait)]
+#![feature(arbitrary_self_types)]
 
 pub mod attach;
 pub mod embed;
@@ -74,7 +76,7 @@ use crate::{
 #[turbo_tasks::value_trait]
 pub trait FileSystem: ValueToString {
     /// Returns the path to the root of the file system.
-    fn root(self: Vc<&'static dyn FileSystem>) -> Vc<FileSystemPath> {
+    fn root(self: Vc<Self>) -> Vc<FileSystemPath> {
         FileSystemPath::new_normalized(self, String::new())
     }
     fn read(self: Vc<Self>, fs_path: Vc<FileSystemPath>) -> Vc<FileContent>;
@@ -643,7 +645,7 @@ impl FileSystem for DiskFileSystem {
                 link_path_unix.to_string(),
                 fs_path
                     .parent()
-                    .join(link_path_unix.as_ref())
+                    .join(link_path_unix.to_string())
                     .get_type()
                     .await?,
             )
@@ -850,7 +852,7 @@ pub struct FileSystemPath {
 }
 
 impl FileSystemPath {
-    pub fn is_inside(&self, context: &FileSystemPath) -> bool {
+    pub fn is_inside_ref(&self, context: &FileSystemPath) -> bool {
         if self.fs == context.fs && self.path.starts_with(&context.path) {
             if context.path.is_empty() {
                 true
@@ -862,7 +864,7 @@ impl FileSystemPath {
         }
     }
 
-    pub fn is_inside_or_equal(&self, context: &FileSystemPath) -> bool {
+    pub fn is_inside_or_equal_ref(&self, context: &FileSystemPath) -> bool {
         if self.fs == context.fs && self.path.starts_with(&context.path) {
             if context.path.is_empty() {
                 true
@@ -936,7 +938,7 @@ impl FileSystemPath {
         self.path.rsplit('/').next().unwrap()
     }
 
-    pub fn extension(&self) -> Option<&str> {
+    pub fn extension_ref(&self) -> Option<&str> {
         if let Some((_, ext)) = self.path.rsplit_once('.') {
             if !ext.contains('/') {
                 return Some(ext);
@@ -978,7 +980,7 @@ impl FileSystemPath {
     #[turbo_tasks::function]
     pub async fn join(self: Vc<Self>, path: String) -> Result<Vc<Self>> {
         let this = self.await?;
-        if let Some(path) = join_path(&this.path, path) {
+        if let Some(path) = join_path(&this.path, &path) {
             Ok(Self::new_normalized(this.fs, path))
         } else {
             bail!(
@@ -1039,7 +1041,7 @@ impl FileSystemPath {
     #[turbo_tasks::function]
     pub async fn try_join(self: Vc<Self>, path: String) -> Result<Vc<FileSystemPathOption>> {
         let this = self.await?;
-        if let Some(path) = join_path(&this.path, path) {
+        if let Some(path) = join_path(&this.path, &path) {
             Ok(Vc::cell(Some(
                 Self::new_normalized(this.fs, path).resolve().await?,
             )))
@@ -1053,7 +1055,7 @@ impl FileSystemPath {
     #[turbo_tasks::function]
     pub async fn try_join_inside(self: Vc<Self>, path: String) -> Result<Vc<FileSystemPathOption>> {
         let this = self.await?;
-        if let Some(path) = join_path(&this.path, path) {
+        if let Some(path) = join_path(&this.path, &path) {
             if path.starts_with(&this.path) {
                 return Ok(Vc::cell(Some(
                     Self::new_normalized(this.fs, path).resolve().await?,
@@ -1085,17 +1087,17 @@ impl FileSystemPath {
     #[turbo_tasks::function]
     pub async fn extension(self: Vc<Self>) -> Result<Vc<String>> {
         let this = self.await?;
-        Ok(Vc::cell(this.extension().unwrap_or("").to_string()))
+        Ok(Vc::cell(this.extension_ref().unwrap_or("").to_string()))
     }
 
     #[turbo_tasks::function]
     pub async fn is_inside(self: Vc<Self>, other: Vc<FileSystemPath>) -> Result<Vc<bool>> {
-        Ok(Vc::cell(self.await?.is_inside(&*other.await?)))
+        Ok(Vc::cell(self.await?.is_inside_ref(&*other.await?)))
     }
 
     #[turbo_tasks::function]
     pub async fn is_inside_or_equal(self: Vc<Self>, other: Vc<FileSystemPath>) -> Result<Vc<bool>> {
-        Ok(Vc::cell(self.await?.is_inside_or_equal(&*other.await?)))
+        Ok(Vc::cell(self.await?.is_inside_or_equal_ref(&*other.await?)))
     }
 }
 
@@ -1137,7 +1139,7 @@ pub async fn rebase(
             new_path = [new_base.path.as_str(), &fs_path.path[old_base.path.len()..]].concat();
         }
     }
-    Ok(new_base.fs.root().join(&new_path))
+    Ok(new_base.fs.root().join(new_path))
 }
 
 #[turbo_tasks::value_impl]
@@ -1254,7 +1256,7 @@ impl FileSystemPath {
         let mut current = self.root().resolve().await?;
         let mut symlinks = Vec::new();
         for segment in segments {
-            current = current.join(segment).resolve().await?;
+            current = current.join(segment.to_string()).resolve().await?;
             while let FileSystemEntryType::Symlink = &*current.get_type().await? {
                 if let LinkContent::Link { target, link_type } = &*current.read_link().await? {
                     symlinks.push(current.resolve().await?);
@@ -1263,7 +1265,7 @@ impl FileSystemPath {
                     } else {
                         current.parent().resolve().await?
                     }
-                    .join(target)
+                    .join(target.to_string())
                     .resolve()
                     .await?;
                 } else {
@@ -1689,7 +1691,7 @@ impl FileContent {
         }
     }
 
-    pub fn parse_json(&self) -> FileJsonContent {
+    pub fn parse_json_ref(&self) -> FileJsonContent {
         match self {
             FileContent::Content(file) => {
                 let de = &mut serde_json::Deserializer::from_reader(file.read());
@@ -1704,7 +1706,7 @@ impl FileContent {
         }
     }
 
-    pub fn parse_json_with_comments(&self) -> FileJsonContent {
+    pub fn parse_json_with_comments_ref(&self) -> FileJsonContent {
         match self {
             FileContent::Content(file) => match file.content.to_str() {
                 Ok(string) => match parse_to_serde_value(
@@ -1732,7 +1734,7 @@ impl FileContent {
         }
     }
 
-    pub fn lines(&self) -> FileLinesContent {
+    pub fn lines_ref(&self) -> FileLinesContent {
         match self {
             FileContent::Content(file) => match file.content.to_str() {
                 Ok(string) => {
@@ -1763,17 +1765,17 @@ impl FileContent {
     #[turbo_tasks::function]
     pub async fn parse_json(self: Vc<Self>) -> Result<Vc<FileJsonContent>> {
         let this = self.await?;
-        Ok(this.parse_json().into())
+        Ok(this.parse_json_ref().into())
     }
     #[turbo_tasks::function]
     pub async fn parse_json_with_comments(self: Vc<Self>) -> Result<Vc<FileJsonContent>> {
         let this = self.await?;
-        Ok(this.parse_json_with_comments().into())
+        Ok(this.parse_json_with_comments_ref().into())
     }
     #[turbo_tasks::function]
     pub async fn lines(self: Vc<Self>) -> Result<Vc<FileLinesContent>> {
         let this = self.await?;
-        Ok(this.lines().into())
+        Ok(this.lines_ref().into())
     }
 }
 
