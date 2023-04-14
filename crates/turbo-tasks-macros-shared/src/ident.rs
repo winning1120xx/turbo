@@ -148,14 +148,25 @@ pub fn get_type_ident(ty: &Type) -> Option<&Ident> {
     match ty {
         // T
         Type::Path(path) => Some(get_last_path_ident(&path.path)),
-        // dyn T and &dyn T
+        // &'static dyn T
         Type::Reference(TypeReference {
-            lifetime: None,
+            lifetime: Some(lifetime),
             mutability: None,
             elem: box Type::TraitObject(trait_object),
             ..
-        })
-        | Type::TraitObject(trait_object) => {
+        }) => {
+            if lifetime.ident != "static" {
+                lifetime
+                    .span()
+                    .unwrap()
+                    .error(
+                        "#[turbo_tasks::value_impl] does not support trait objects with a \
+                         lifetime other than 'static",
+                    )
+                    .emit();
+                return None;
+            }
+
             if trait_object.bounds.len() > 1 {
                 trait_object
                     .span()
@@ -182,8 +193,8 @@ pub fn get_type_ident(ty: &Type) -> Option<&Ident> {
             ty.span()
                 .unwrap()
                 .error(format!(
-                    "#[turbo_tasks::value_impl] does not support the type {}, expected T or &dyn \
-                     Trait",
+                    "#[turbo_tasks::value_impl] does not support the type {}, expected T or \
+                     &'static dyn Trait",
                     ty.to_token_stream()
                 ))
                 .emit();
