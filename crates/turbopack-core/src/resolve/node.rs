@@ -1,11 +1,10 @@
-use turbo_tasks_fs::FileSystemPathVc;
+use turbo_tasks::Vc;
+use turbo_tasks_fs::FileSystemPath;
 
-use super::options::{
-    ConditionValue, ResolveIntoPackage, ResolveModules, ResolveOptions, ResolveOptionsVc,
-};
+use super::options::{ConditionValue, ResolveIntoPackage, ResolveModules, ResolveOptions};
 
 #[turbo_tasks::function]
-pub fn node_cjs_resolve_options(root: FileSystemPathVc) -> ResolveOptionsVc {
+pub fn node_cjs_resolve_options(root: Vc<FileSystemPath>) -> Vc<ResolveOptions> {
     ResolveOptions {
         extensions: vec![".js".to_string(), ".json".to_string(), ".node".to_string()],
         modules: vec![ResolveModules::Nested(

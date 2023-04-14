@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::resolve::ModulePartVc;
+use turbo_tasks::Vc;
+
+use crate::resolve::ModulePart;
 
 // These enums list well-known types, which we use internally. Plugins might add
 // custom types too.
@@ -18,7 +20,7 @@ pub enum CommonJsReferenceSubType {
 #[turbo_tasks::value(serialization = "auto_for_input")]
 #[derive(Debug, Default, Clone, PartialOrd, Ord, Hash)]
 pub enum EcmaScriptModulesReferenceSubType {
-    ImportPart(ModulePartVc),
+    ImportPart(Vc<ModulePart>),
     Custom(u8),
     #[default]
     Undefined,
