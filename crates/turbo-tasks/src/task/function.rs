@@ -330,7 +330,10 @@ mod tests {
             todo!()
         }
 
-        async fn async_with_recv_and_str_and_result(_a: &i32, _s: String) -> Result<crate::Vc<i32>> {
+        async fn async_with_recv_and_str_and_result(
+            _a: &i32,
+            _s: String,
+        ) -> Result<crate::Vc<i32>> {
             todo!()
         }
 
