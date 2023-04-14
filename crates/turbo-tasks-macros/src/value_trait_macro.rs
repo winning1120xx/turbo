@@ -164,7 +164,7 @@ pub fn value_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     let value_debug_impl = if debug {
         quote! {
             #[turbo_tasks::value_impl]
-            impl turbo_tasks::debug::ValueDebug for &dyn #trait_ident {
+            impl turbo_tasks::debug::ValueDebug for &'static dyn #trait_ident {
                 #[turbo_tasks::function]
                 pub fn dbg(self: turbo_tasks::Vc<Self>) -> turbo_tasks::Vc<turbo_tasks::debug::ValueDebugString> {
                     use turbo_tasks::debug::ValueDebug;

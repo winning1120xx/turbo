@@ -79,6 +79,7 @@ where
             std::mem::transmute_copy::<ManuallyDrop<Self::Target>, T>(&ManuallyDrop::new(target))
         }
     }
+
     fn target_to_value_ref(target: &Self::Target) -> &T {
         // Safety: see `Self::value_to_target` above.
         unsafe {

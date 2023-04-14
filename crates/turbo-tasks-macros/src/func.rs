@@ -377,6 +377,7 @@ impl NativeFn {
 
         parse_quote! {
             turbo_tasks::macro_helpers::Lazy::new(|| {
+                #[allow(deprecated)]
                 turbo_tasks::NativeFunction::new(#function_path_string.to_owned(), #function_path)
             })
         }
@@ -386,10 +387,10 @@ impl NativeFn {
         parse_quote! { turbo_tasks::macro_helpers::Lazy<turbo_tasks::FunctionId> }
     }
 
-    pub fn id_definition(&self, native_function_path: &Path) -> Expr {
+    pub fn id_definition(&self, native_function_id_path: &Path) -> Expr {
         parse_quote! {
             turbo_tasks::macro_helpers::Lazy::new(|| {
-                turbo_tasks::registry::get_function_id(&*#native_function_path)
+                turbo_tasks::registry::get_function_id(&*#native_function_id_path)
             })
         }
     }

@@ -36,6 +36,7 @@
 #![feature(arbitrary_self_types)]
 #![feature(type_alias_impl_trait)]
 #![feature(async_fn_in_trait)]
+#![feature(never_type)]
 
 pub mod backend;
 mod collectibles;
@@ -43,6 +44,7 @@ mod completion;
 pub mod debug;
 mod display;
 pub mod event;
+pub mod graph;
 mod id;
 mod id_factory;
 mod invalidation;
@@ -62,6 +64,7 @@ mod state;
 pub mod task;
 mod timed_future;
 pub mod trace;
+mod trait_ref;
 mod unit;
 pub mod util;
 mod value;
@@ -93,6 +96,7 @@ pub use state::State;
 pub use task::concrete_task_input::{
     ConcreteTaskInput, FromTaskInput, SharedReference, SharedValue,
 };
+pub use trait_ref::{IntoTraitRef, TraitRef};
 pub use turbo_tasks_macros::{function, value, value_impl, value_trait};
 pub use unit::unit;
 pub use value::{TransientInstance, TransientValue, Value};

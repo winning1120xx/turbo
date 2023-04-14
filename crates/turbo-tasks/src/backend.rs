@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use auto_hash_map::AutoSet;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ pub use crate::id::BackendJobId;
 use crate::{
     event::EventListener, manager::TurboTasksBackendApi, raw_vc::CellId, registry,
     ConcreteTaskInput, FunctionId, RawVc, ReadRef, SharedReference, TaskId, TaskIdProvider,
-    TraitTypeId, Vc, VcValueType,
+    TraitRef, TraitTypeId, Vc, VcValueTrait, VcValueType,
 };
 
 pub enum TaskType {
@@ -151,6 +151,24 @@ impl CellContent {
             .downcast()
             .ok_or_else(|| anyhow!("Unexpected type in cell"))?;
         Ok(ReadRef::new(data))
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure that the CellContent contains a vc that
+    /// implements T.
+    pub fn cast_trait<T>(self) -> Result<TraitRef<T>>
+    where
+        T: VcValueTrait + ?Sized,
+    {
+        let shared_reference = self.0.ok_or_else(|| anyhow!("Cell is empty"))?;
+        if shared_reference.0.is_none() {
+            bail!("Cell content is untyped");
+        }
+        Ok(
+            // Safety: We just checked that the content is typed.
+            TraitRef::new(shared_reference),
+        )
     }
 
     pub fn try_cast<T: Any + VcValueType>(self) -> Option<ReadRef<T>> {

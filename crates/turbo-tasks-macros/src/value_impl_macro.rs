@@ -153,6 +153,7 @@ pub fn value_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 
                         #(#attrs)*
                         #[doc(hidden)]
+                        #[deprecated(note = "This function is only exposed for use in macros. Do not call it directly.")]
                         pub(self) #inline_signature #block
                     }
 
@@ -271,6 +272,7 @@ pub fn value_impl(args: TokenStream, input: TokenStream) -> TokenStream {
 
                         #(#attrs)*
                         #[doc(hidden)]
+                        #[deprecated(note = "This function is only exposed for use in macros. Do not call it directly.")]
                         #inline_signature #block
                     }
 

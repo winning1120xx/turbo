@@ -23,7 +23,7 @@ use crate::{
     },
     registry::{self, get_value_type},
     turbo_tasks,
-    vc::Vc,
+    vc::{cast::VcCast, Vc, VcValueTraitCast, VcValueTypeCast},
     CollectiblesSource, ReadRef, SharedReference, TaskId, TraitTypeId, ValueTypeId, VcValueTrait,
     VcValueType,
 };
@@ -64,13 +64,31 @@ pub enum RawVc {
 }
 
 impl RawVc {
-    pub fn into_read<T: Any + VcValueType>(self) -> ReadRawVcFuture<T> {
+    pub fn into_read<T: VcValueType>(self) -> ReadRawVcFuture<T, VcValueTypeCast<T>> {
         // returns a custom future to have something concrete and sized
         // this avoids boxing in IntoFuture
         ReadRawVcFuture::new(self)
     }
 
-    pub fn into_strongly_consistent_read<T: Any + VcValueType>(self) -> ReadRawVcFuture<T> {
+    pub fn into_strongly_consistent_read<T: VcValueType>(
+        self,
+    ) -> ReadRawVcFuture<T, VcValueTypeCast<T>> {
+        // returns a custom future to have something concrete and sized
+        // this avoids boxing in IntoFuture
+        ReadRawVcFuture::new_strongly_consistent(self)
+    }
+
+    pub fn into_trait_read<T: VcValueTrait + ?Sized>(
+        self,
+    ) -> ReadRawVcFuture<T, VcValueTraitCast<T>> {
+        // returns a custom future to have something concrete and sized
+        // this avoids boxing in IntoFuture
+        ReadRawVcFuture::new(self)
+    }
+
+    pub fn into_strongly_consistent_trait_read<T: VcValueTrait + Sized>(
+        self,
+    ) -> ReadRawVcFuture<T, VcValueTraitCast<T>> {
         // returns a custom future to have something concrete and sized
         // this avoids boxing in IntoFuture
         ReadRawVcFuture::new_strongly_consistent(self)
@@ -241,6 +259,11 @@ impl RawVc {
         }
     }
 
+    pub fn connect(&self) {
+        let tt = turbo_tasks();
+        tt.connect_task(self.get_task_id());
+    }
+
     pub fn is_resolved(&self) -> bool {
         match self {
             RawVc::TaskOutput(_) => false,
@@ -296,15 +319,16 @@ impl Display for RawVc {
     }
 }
 
-pub struct ReadRawVcFuture<T: Any + VcValueType> {
+pub struct ReadRawVcFuture<T: ?Sized, Cast = VcValueTypeCast<T>> {
     turbo_tasks: Arc<dyn TurboTasksApi>,
     strongly_consistent: bool,
     current: RawVc,
     listener: Option<EventListener>,
     phantom_data: PhantomData<Pin<Box<T>>>,
+    _cast: PhantomData<Cast>,
 }
 
-impl<T: Any + VcValueType> ReadRawVcFuture<T> {
+impl<T: ?Sized, Cast: VcCast> ReadRawVcFuture<T, Cast> {
     fn new(vc: RawVc) -> Self {
         let tt = turbo_tasks();
         tt.notify_scheduled_tasks();
@@ -314,6 +338,7 @@ impl<T: Any + VcValueType> ReadRawVcFuture<T> {
             current: vc,
             listener: None,
             phantom_data: PhantomData,
+            _cast: PhantomData,
         }
     }
 
@@ -326,12 +351,13 @@ impl<T: Any + VcValueType> ReadRawVcFuture<T> {
             current: vc,
             listener: None,
             phantom_data: PhantomData,
+            _cast: PhantomData,
         }
     }
 }
 
-impl<T: Any + VcValueType> Future for ReadRawVcFuture<T> {
-    type Output = Result<ReadRef<T>>;
+impl<T: ?Sized, Cast: VcCast> Future for ReadRawVcFuture<T, Cast> {
+    type Output = Result<Cast::Output>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         self.turbo_tasks.notify_scheduled_tasks();
@@ -363,7 +389,7 @@ impl<T: Any + VcValueType> Future for ReadRawVcFuture<T> {
                     match this.turbo_tasks.try_read_task_cell(task, index) {
                         Ok(Ok(content)) => {
                             // SAFETY: Constructor ensures that T and U are binary identical
-                            return Poll::Ready(content.cast::<T>());
+                            return Poll::Ready(Cast::cast(content));
                         }
                         Ok(Err(listener)) => listener,
                         Err(err) => return Poll::Ready(Err(err)),
@@ -393,6 +419,13 @@ pub struct CollectiblesFuture<T: VcValueTrait> {
     inner: ReadRawVcFuture<AutoSet<RawVc>>,
     take: bool,
     phantom: PhantomData<fn() -> T>,
+}
+
+impl<T: VcValueTrait> CollectiblesFuture<T> {
+    pub fn strongly_consistent(mut self) -> Self {
+        self.inner.strongly_consistent = true;
+        self
+    }
 }
 
 impl<T: VcValueTrait> Future for CollectiblesFuture<T> {

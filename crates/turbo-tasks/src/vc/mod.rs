@@ -1,3 +1,4 @@
+pub(crate) mod cast;
 mod cell_mode;
 mod read;
 mod traits;
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use self::cell_mode::VcCellMode;
 pub use self::{
+    cast::{VcValueTraitCast, VcValueTypeCast},
     cell_mode::{VcCellNewMode, VcCellSharedMode},
     read::{VcDefaultRead, VcRead, VcTransparentRead},
     traits::{Dynamic, TypedForInput, Upcast, VcValueTrait, VcValueType},
@@ -17,7 +19,7 @@ use crate::{
     debug::{ValueDebug, ValueDebugFormat, ValueDebugFormatString},
     trace::{TraceRawVcs, TraceRawVcsContext},
     CollectiblesFuture, CollectiblesSource, ConcreteTaskInput, FromTaskInput, RawVc,
-    ReadRawVcFuture, ReadRef, ResolveTypeError,
+    ReadRawVcFuture, ResolveTypeError,
 };
 
 /// A Value Cell (`Vc` for short) is a reference to a memoized computation
@@ -374,6 +376,25 @@ where
     pub async fn try_resolve_downcast<K>(vc: Self) -> Result<Option<Vc<K>>, ResolveTypeError>
     where
         K: Upcast<T>,
+        K: VcValueTrait + ?Sized,
+    {
+        let raw_vc: RawVc = vc.node;
+        let raw_vc = raw_vc
+            .resolve_trait(<K as VcValueTrait>::get_trait_type_id())
+            .await?;
+        Ok(raw_vc.map(|raw_vc| Vc {
+            node: raw_vc,
+            _t: PhantomData,
+        }))
+    }
+
+    /// Attempts to downcast the given `Vc<&dyn T>` to a `Vc<K>`.
+    /// This operation also resolves the `Vc`.
+    ///
+    /// Returns `None` if the underlying value type is not a `K`.
+    pub async fn try_resolve_downcast_type<K>(vc: Self) -> Result<Option<Vc<K>>, ResolveTypeError>
+    where
+        K: Upcast<T>,
         K: VcValueType,
     {
         let raw_vc: RawVc = vc.node;
@@ -472,7 +493,7 @@ impl<T> std::future::IntoFuture for Vc<T>
 where
     T: VcValueType,
 {
-    type Output = anyhow::Result<ReadRef<T>>;
+    type Output = <ReadRawVcFuture<T> as std::future::Future>::Output;
     type IntoFuture = ReadRawVcFuture<T>;
     fn into_future(self) -> Self::IntoFuture {
         self.node.into_read::<T>()

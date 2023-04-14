@@ -3,12 +3,37 @@ use std::ops::Deref;
 use auto_hash_map::AutoSet;
 use turbo_tasks_macros::primitive;
 
-use crate::{self as turbo_tasks, RawVc};
+use crate::{self as turbo_tasks, RawVc, Vc};
 
 primitive!((), "unit");
 primitive!(String);
+
+#[turbo_tasks::function]
+fn empty_string() -> Vc<String> {
+    Vc::cell(String::new())
+}
+
+impl Vc<String> {
+    #[inline(always)]
+    pub fn empty() -> Vc<String> {
+        empty_string()
+    }
+}
+
 primitive!(Option<String>, "option_string");
 primitive!(Vec<String>, "vec_string");
+
+#[turbo_tasks::function]
+fn empty_string_vec() -> Vc<Vec<String>> {
+    Vc::cell(Vec::new())
+}
+
+impl Vc<Vec<String>> {
+    #[inline(always)]
+    pub fn empty() -> Vc<Vec<String>> {
+        empty_string_vec()
+    }
+}
 
 primitive!(Option<u16>, "option_u16");
 
