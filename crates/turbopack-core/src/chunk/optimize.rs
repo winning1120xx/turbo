@@ -11,7 +11,7 @@ use turbo_tasks::{TryJoinIterExt, Vc};
 use turbo_tasks_fs::{FileSystemPath, FileSystemPathOption};
 
 use super::{Chunk, ChunkGroup, Chunks};
-use crate::{asset::Asset, chunk::Chunk};
+use crate::asset::Asset;
 
 /// A functor to optimize a set of chunks.
 #[turbo_tasks::value_trait]
@@ -36,7 +36,7 @@ pub async fn optimize(chunks: Vc<Chunks>, chunk_group: Vc<ChunkGroup>) -> Result
             Ok((
                 chunk,
                 if let Some(optimizable) =
-                    Vc::try_resolve_downcast::<OptimizableChunk>(chunk).await?
+                    Vc::try_resolve_downcast::<&dyn OptimizableChunk>(*chunk).await?
                 {
                     Some(optimizable.get_optimizer().resolve().await?)
                 } else {

@@ -34,7 +34,7 @@ impl AvailableAssets {
 
     #[turbo_tasks::function]
     pub fn new(roots: Vec<Vc<&'static dyn Asset>>) -> Vc<Self> {
-        Vc::<Self>::new_normalized(None, roots)
+        Self::new_normalized(None, roots)
     }
 
     #[turbo_tasks::function]
@@ -50,7 +50,7 @@ impl AvailableAssets {
             .into_iter()
             .filter_map(|(included, root)| (!*included).then_some(root))
             .collect();
-        Ok(Vc::<Self>::new_normalized(Some(self), roots))
+        Ok(Self::new_normalized(Some(self), roots))
     }
 
     #[turbo_tasks::function]
@@ -94,7 +94,7 @@ async fn chunkable_assets_set(root: Vc<&'static dyn Asset>) -> Result<Vc<AssetsS
                 let mut results = Vec::new();
                 for reference in asset.references().await?.iter() {
                     if let Some(chunkable) =
-                        Vc::try_resolve_downcast::<ChunkableAssetReference>(reference).await?
+                        Vc::try_resolve_downcast::<&dyn ChunkableAssetReference>(*reference).await?
                     {
                         if matches!(
                             &*chunkable.chunking_type().await?,

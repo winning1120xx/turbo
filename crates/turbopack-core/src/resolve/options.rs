@@ -113,10 +113,10 @@ impl ImportMapping {
     }
 }
 
-impl AliasTemplate for ImportMapping {
+impl AliasTemplate for Vc<ImportMapping> {
     type Output<'a> = Pin<Box<dyn Future<Output = Result<Vc<ImportMapping>>> + Send + 'a>>;
 
-    fn replace<'a>(&'a self, capture: &'a str) -> Vc<Self>::Output<'a> {
+    fn replace<'a>(&'a self, capture: &'a str) -> Self::Output<'a> {
         Box::pin(async move {
             let this = &*self.await?;
             Ok(match this {
@@ -141,7 +141,7 @@ impl AliasTemplate for ImportMapping {
                         .await?,
                 ),
                 ImportMapping::Dynamic(replacement) => {
-                    (*replacement.replace(capture).await?).clone()
+                    (*replacement.replace(capture.to_string()).await?).clone()
                 }
             }
             .cell())
@@ -167,7 +167,7 @@ impl ImportMap {
     }
 
     /// Extends the import map with another import map.
-    pub fn extend(&mut self, other: &ImportMap) {
+    pub fn extend_ref(&mut self, other: &ImportMap) {
         let Self { map } = other.clone();
         self.map.extend(map);
     }
@@ -233,7 +233,7 @@ impl ImportMap {
     #[turbo_tasks::function]
     pub async fn extend(self: Vc<Self>, other: Vc<ImportMap>) -> Result<Vc<Self>> {
         let mut import_map = self.await?.clone_value();
-        import_map.extend(&*other.await?);
+        import_map.extend_ref(&*other.await?);
         Ok(import_map.cell())
     }
 }
@@ -472,7 +472,7 @@ pub async fn resolve_modules_options(
 
 #[turbo_tasks::value_trait]
 pub trait ImportMappingReplacement {
-    fn replace(self: Vc<Self>, capture: &str) -> Vc<ImportMapping>;
+    fn replace(self: Vc<Self>, capture: String) -> Vc<ImportMapping>;
     fn result(
         self: Vc<Self>,
         context: Vc<FileSystemPath>,

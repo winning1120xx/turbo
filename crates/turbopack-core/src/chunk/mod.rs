@@ -76,43 +76,43 @@ pub struct ModuleIds(Vec<Vc<ModuleId>>);
 /// A context for the chunking that influences the way chunks are created
 #[turbo_tasks::value_trait]
 pub trait ChunkingContext {
-    fn context_path(&self) -> Vc<FileSystemPath>;
-    fn output_root(&self) -> Vc<FileSystemPath>;
+    fn context_path(self: Vc<Self>) -> Vc<FileSystemPath>;
+    fn output_root(self: Vc<Self>) -> Vc<FileSystemPath>;
 
     // TODO remove this, a chunking context should not be bound to a specific
     // environment since this can change due to transitions in the module graph
-    fn environment(&self) -> Vc<Environment>;
+    fn environment(self: Vc<Self>) -> Vc<Environment>;
 
     // TODO(alexkirsz) Remove this from the chunking context. This should be at the
     // discretion of chunking context implementors. However, we currently use this
     // in a couple of places in `turbopack-css`, so we need to remove that
     // dependency first.
-    fn chunk_path(&self, ident: Vc<AssetIdent>, extension: &str) -> Vc<FileSystemPath>;
+    fn chunk_path(self: Vc<Self>, ident: Vc<AssetIdent>, extension: String) -> Vc<FileSystemPath>;
 
     // TODO(alexkirsz) Remove this from the chunking context.
     /// Reference Source Map Assets for chunks
-    fn reference_chunk_source_maps(&self, chunk: Vc<&'static dyn Asset>) -> Vc<bool>;
+    fn reference_chunk_source_maps(self: Vc<Self>, chunk: Vc<&'static dyn Asset>) -> Vc<bool>;
 
     fn can_be_in_same_chunk(
-        &self,
+        self: Vc<Self>,
         asset_a: Vc<&'static dyn Asset>,
         asset_b: Vc<&'static dyn Asset>,
     ) -> Vc<bool>;
 
-    fn asset_path(&self, content_hash: &str, extension: &str) -> Vc<FileSystemPath>;
+    fn asset_path(self: Vc<Self>, content_hash: String, extension: String) -> Vc<FileSystemPath>;
 
-    fn is_hot_module_replacement_enabled(&self) -> Vc<bool> {
+    fn is_hot_module_replacement_enabled(self: Vc<Self>) -> Vc<bool> {
         Vc::cell(false)
     }
 
-    fn layer(&self) -> Vc<String> {
+    fn layer(self: Vc<Self>) -> Vc<String> {
         Vc::cell("".to_string())
     }
 
-    fn with_layer(&self, layer: &str) -> Vc<&'static dyn ChunkingContext>;
+    fn with_layer(self: Vc<Self>, layer: String) -> Vc<&'static dyn ChunkingContext>;
 
     /// Generates an output chunk asset from an intermediate chunk asset.
-    fn generate_chunk(&self, chunk: Vc<&'static dyn Chunk>) -> Vc<&'static dyn Asset>;
+    fn generate_chunk(self: Vc<Self>, chunk: Vc<&'static dyn Chunk>) -> Vc<&'static dyn Asset>;
 }
 
 /// An [Asset] that can be converted into a [Chunk].
@@ -125,13 +125,13 @@ pub trait ChunkableAsset: Asset {
     ) -> Vc<&'static dyn Chunk>;
 
     fn as_root_chunk(
-        self: Vc<&'static dyn ChunkableAsset>,
+        self: Vc<Self>,
         context: Vc<&'static dyn ChunkingContext>,
     ) -> Vc<&'static dyn Chunk> {
         self.as_chunk(
             context,
             Value::new(AvailabilityInfo::Root {
-                current_availability_root: self.into(),
+                current_availability_root: Vc::upcast(self),
             }),
         )
     }
@@ -156,7 +156,7 @@ impl ChunkGroup {
         chunking_context: Vc<&'static dyn ChunkingContext>,
         availability_info: Value<AvailabilityInfo>,
     ) -> Vc<Self> {
-        Vc::<Self>::from_chunk(
+        Self::from_chunk(
             chunking_context,
             asset.as_chunk(chunking_context, availability_info),
         )
@@ -168,7 +168,7 @@ impl ChunkGroup {
         chunking_context: Vc<&'static dyn ChunkingContext>,
         entry: Vc<&'static dyn Chunk>,
     ) -> Vc<Self> {
-        Vc::<Self>::cell(ChunkGroup {
+        Self::cell(ChunkGroup {
             chunking_context,
             entry,
             evaluatable_assets: EvaluatableAssets::empty(),
@@ -183,10 +183,10 @@ impl ChunkGroup {
     #[turbo_tasks::function]
     pub fn evaluated(
         chunking_context: Vc<&'static dyn ChunkingContext>,
-        main_entry: Vc<EvaluatableAsset>,
+        main_entry: Vc<&'static dyn EvaluatableAsset>,
         other_entries: Vc<EvaluatableAssets>,
     ) -> Vc<Self> {
-        Vc::<Self>::cell(ChunkGroup {
+        Self::cell(ChunkGroup {
             chunking_context,
             entry: main_entry.as_root_chunk(chunking_context),
             // The main entry should always be *appended* to other entries, in order to ensure
@@ -247,18 +247,18 @@ impl ChunkGroup {
 
         if !evaluatable_assets.is_empty() {
             if let Some(evaluate_chunking_context) =
-                Vc::try_resolve_sidecast::<&dyn EvaluateChunkingContext>(&this.chunking_context)
+                Vc::try_resolve_sidecast::<&dyn EvaluateChunkingContext>(this.chunking_context)
                     .await?
             {
                 assets.push(evaluate_chunking_context.evaluate_chunk(
                     this.entry,
-                    Assets::cell(assets.clone()),
+                    Vc::cell(assets.clone()),
                     this.evaluatable_assets,
                 ));
             }
         }
 
-        Ok(Assets::cell(assets))
+        Ok(Vc::cell(assets))
     }
 }
 
@@ -283,7 +283,7 @@ async fn reference_to_chunks(
     r: Vc<&'static dyn AssetReference>,
 ) -> Result<impl Iterator<Item = Vc<&'static dyn Chunk>> + Send> {
     let mut result = Vec::new();
-    if let Some(pc) = Vc::try_resolve_downcast::<ParallelChunkReference>(r).await? {
+    if let Some(pc) = Vc::try_resolve_downcast::<&dyn ParallelChunkReference>(r).await? {
         if *pc.is_loaded_in_parallel().await? {
             result = r
                 .resolve_reference()
@@ -292,7 +292,7 @@ async fn reference_to_chunks(
                 .iter()
                 .map(|r| async move {
                     Ok(if let PrimaryResolveResult::Asset(a) = r {
-                        Vc::try_resolve_sidecast::<&dyn Chunk>(a).await?
+                        Vc::try_resolve_sidecast::<&dyn Chunk>(*a).await?
                     } else {
                         None
                     })
@@ -395,7 +395,7 @@ pub struct ChunkReference {
 impl ChunkReference {
     #[turbo_tasks::function]
     pub fn new(chunk: Vc<&'static dyn Chunk>) -> Vc<Self> {
-        Vc::<Self>::cell(ChunkReference {
+        Self::cell(ChunkReference {
             chunk,
             parallel: false,
         })
@@ -403,7 +403,7 @@ impl ChunkReference {
 
     #[turbo_tasks::function]
     pub fn new_parallel(chunk: Vc<&'static dyn Chunk>) -> Vc<Self> {
-        Vc::<Self>::cell(ChunkReference {
+        Self::cell(ChunkReference {
             chunk,
             parallel: true,
         })
@@ -414,7 +414,7 @@ impl ChunkReference {
 impl AssetReference for ChunkReference {
     #[turbo_tasks::function]
     fn resolve_reference(&self) -> Vc<ResolveResult> {
-        ResolveResult::asset(self.chunk.into()).into()
+        ResolveResult::asset(Vc::upcast(self.chunk)).into()
     }
 }
 
@@ -447,7 +447,7 @@ pub struct ChunkGroupReference {
 impl ChunkGroupReference {
     #[turbo_tasks::function]
     pub fn new(chunk_group: Vc<ChunkGroup>) -> Vc<Self> {
-        Vc::<Self>::cell(ChunkGroupReference { chunk_group })
+        Self::cell(ChunkGroupReference { chunk_group })
     }
 }
 
@@ -472,7 +472,7 @@ impl ValueToString for ChunkGroupReference {
 }
 
 pub struct ChunkContentResult<I> {
-    pub chunk_items: Vec<I>,
+    pub chunk_items: Vec<Vc<I>>,
     pub chunks: Vec<Vc<&'static dyn Chunk>>,
     pub async_chunk_groups: Vec<Vc<ChunkGroup>>,
     pub external_asset_references: Vec<Vc<&'static dyn AssetReference>>,
@@ -480,16 +480,16 @@ pub struct ChunkContentResult<I> {
 }
 
 #[async_trait::async_trait]
-pub trait FromChunkableAsset: ChunkItem + Sized + Debug {
+pub trait FromChunkableAsset: ChunkItem + Unpin + Debug {
     async fn from_asset(
         context: Vc<&'static dyn ChunkingContext>,
         asset: Vc<&'static dyn Asset>,
-    ) -> Result<Option<Self>>;
+    ) -> Result<Option<Vc<Self>>>;
     async fn from_async_asset(
         context: Vc<&'static dyn ChunkingContext>,
         asset: Vc<&'static dyn ChunkableAsset>,
         availability_info: Value<AvailabilityInfo>,
-    ) -> Result<Option<Self>>;
+    ) -> Result<Option<Vc<Self>>>;
 }
 
 pub async fn chunk_content_split<I>(
@@ -499,7 +499,7 @@ pub async fn chunk_content_split<I>(
     availability_info: Value<AvailabilityInfo>,
 ) -> Result<ChunkContentResult<I>>
 where
-    I: FromChunkableAsset + Eq + std::hash::Hash + Clone,
+    I: FromChunkableAsset,
 {
     chunk_content_internal_parallel(context, entry, additional_entries, availability_info, true)
         .await
@@ -513,7 +513,7 @@ pub async fn chunk_content<I>(
     availability_info: Value<AvailabilityInfo>,
 ) -> Result<Option<ChunkContentResult<I>>>
 where
-    I: FromChunkableAsset + Eq + std::hash::Hash + Clone,
+    I: FromChunkableAsset,
 {
     chunk_content_internal_parallel(context, entry, additional_entries, availability_info, false)
         .await
@@ -547,13 +547,13 @@ async fn reference_to_graph_nodes<I>(
 ) -> Result<
     Vec<(
         Option<(Vc<&'static dyn Asset>, ChunkingType)>,
-        ChunkContentGraphNode<I>,
+        ChunkContentGraphNode<Vc<I>>,
     )>,
 >
 where
-    I: FromChunkableAsset + Eq + std::hash::Hash + Clone,
+    I: FromChunkableAsset,
 {
-    let Some(chunkable_asset_reference) = Vc::try_resolve_downcast::<ChunkableAssetReference>(reference).await? else {
+    let Some(chunkable_asset_reference) = Vc::try_resolve_downcast::<&dyn ChunkableAssetReference>(reference).await? else {
         return Ok(vec![(None, ChunkContentGraphNode::ExternalAssetReference(reference))]);
     };
 
@@ -622,7 +622,7 @@ where
                 let chunk = chunkable_asset.as_chunk(
                     context.chunking_context,
                     Value::new(AvailabilityInfo::Root {
-                        current_availability_root: chunkable_asset.into(),
+                        current_availability_root: Vc::upcast(chunkable_asset),
                     }),
                 );
                 graph_nodes.push((
@@ -709,27 +709,26 @@ type ChunkItemToGraphNodesEdges<I> = impl Iterator<
     ),
 >;
 
-type ChunkItemToGraphNodesFuture<I: FromChunkableAsset + Eq + std::hash::Hash + Clone> =
-    impl Future<Output = Result<ChunkItemToGraphNodesEdges<I>>>;
+type ChunkItemToGraphNodesFuture<I> = impl Future<Output = Result<ChunkItemToGraphNodesEdges<I>>>;
 
-impl<I> Visit<ChunkContentGraphNode<I>, ()> for ChunkContentVisit<I>
+impl<I> Visit<ChunkContentGraphNode<Vc<I>>, ()> for ChunkContentVisit<I>
 where
-    I: FromChunkableAsset + Eq + std::hash::Hash + Clone,
+    I: FromChunkableAsset,
 {
     type Edge = (
         Option<(Vc<&'static dyn Asset>, ChunkingType)>,
-        ChunkContentGraphNode<I>,
+        ChunkContentGraphNode<Vc<I>>,
     );
-    type EdgesIntoIter = ChunkItemToGraphNodesEdges<I>;
-    type EdgesFuture = ChunkItemToGraphNodesFuture<I>;
+    type EdgesIntoIter = ChunkItemToGraphNodesEdges<Vc<I>>;
+    type EdgesFuture = ChunkItemToGraphNodesFuture<Vc<I>>;
 
     fn visit(
         &mut self,
         (option_key, node): (
             Option<(Vc<&'static dyn Asset>, ChunkingType)>,
-            ChunkContentGraphNode<I>,
+            ChunkContentGraphNode<Vc<I>>,
         ),
-    ) -> VisitControlFlow<ChunkContentGraphNode<I>, ()> {
+    ) -> VisitControlFlow<ChunkContentGraphNode<Vc<I>>, ()> {
         let Some((asset, chunking_type)) = option_key else {
             return VisitControlFlow::Continue(node);
         };
@@ -753,7 +752,7 @@ where
         VisitControlFlow::Continue(node)
     }
 
-    fn edges(&mut self, node: &ChunkContentGraphNode<I>) -> Self::EdgesFuture {
+    fn edges(&mut self, node: &ChunkContentGraphNode<Vc<I>>) -> Self::EdgesFuture {
         let chunk_item = if let ChunkContentGraphNode::ChunkItem(chunk_item) = node {
             Some(chunk_item.clone())
         } else {
@@ -788,7 +787,7 @@ async fn chunk_content_internal_parallel<I>(
     split: bool,
 ) -> Result<Option<ChunkContentResult<I>>>
 where
-    I: FromChunkableAsset + Eq + std::hash::Hash + Clone,
+    I: FromChunkableAsset,
 {
     let additional_entries = if let Some(additional_entries) = additional_entries {
         additional_entries.await?.clone_value().into_iter()

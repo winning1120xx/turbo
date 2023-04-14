@@ -20,7 +20,7 @@ impl IntrospectableAsset {
     pub async fn new(asset: Vc<&'static dyn Asset>) -> Result<Vc<&'static dyn Introspectable>> {
         Ok(Vc::try_resolve_sidecast::<&dyn Introspectable>(asset)
             .await?
-            .unwrap_or_else(|| IntrospectableAsset(asset).cell().into()))
+            .unwrap_or_else(|| Vc::upcast(IntrospectableAsset(asset).cell())))
     }
 }
 
@@ -116,7 +116,7 @@ pub async fn children_from_asset_references(
     for reference in &*references {
         let mut key = key;
         if let Some(chunkable) =
-            Vc::try_resolve_downcast::<ChunkableAssetReference>(reference).await?
+            Vc::try_resolve_downcast::<&dyn ChunkableAssetReference>(*reference).await?
         {
             match &*chunkable.chunking_type().await? {
                 None => {}
@@ -128,7 +128,7 @@ pub async fn children_from_asset_references(
                 Some(ChunkingType::SeparateAsync) => key = async_reference_ty(),
             }
         } else if let Some(parallel) =
-            Vc::try_resolve_downcast::<ParallelChunkReference>(reference).await?
+            Vc::try_resolve_downcast::<&dyn ParallelChunkReference>(*reference).await?
         {
             if *parallel.is_loaded_in_parallel().await? {
                 key = parallel_reference_ty();

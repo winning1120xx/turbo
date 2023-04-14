@@ -93,7 +93,7 @@ pub struct CompileTimeDefines(pub HashMap<Vec<String>, CompileTimeDefineValue>);
 impl CompileTimeDefines {
     #[turbo_tasks::function]
     pub fn empty() -> Vc<Self> {
-        Vc::<Self>::cell(HashMap::new())
+        Vc::cell(HashMap::new())
     }
 }
 
@@ -113,7 +113,7 @@ pub struct FreeVarReferences(pub HashMap<Vec<String>, FreeVarReference>);
 impl FreeVarReferences {
     #[turbo_tasks::function]
     pub fn empty() -> Vc<Self> {
-        Vc::<Self>::cell(HashMap::new())
+        Vc::cell(HashMap::new())
     }
 }
 
