@@ -451,15 +451,14 @@ async fn get_optimized_parallel_chunks<I>(entries: I) -> Result<ChunksVc>
 where
     I: IntoIterator<Item = ChunkVc>,
 {
-    let chunks: Vec<_> = GraphTraversal::<SkipDuplicates<ReverseTopological<_>, _>>::visit(
-        entries,
-        get_chunk_children,
-    )
-    .await
-    .completed()?
-    .into_inner()
-    .into_iter()
-    .collect();
+    let chunks: Vec<_> = ReverseTopological::new()
+        .skip_duplicates()
+        .visit(entries, get_chunk_children)
+        .await
+        .completed()?
+        .into_inner()
+        .into_iter()
+        .collect();
 
     let chunks = ChunksVc::cell(chunks);
     let chunks = optimize(chunks);
