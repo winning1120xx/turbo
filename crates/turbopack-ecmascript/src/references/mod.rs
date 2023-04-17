@@ -262,9 +262,7 @@ pub(crate) async fn analyze_ecmascript_module(
     source: AssetVc,
     origin: ResolveOriginVc,
     ty: Value<EcmascriptModuleAssetType>,
-    transforms: EcmascriptInputTransformsVc,
     options: Value<EcmascriptOptions>,
-    compile_time_info: CompileTimeInfoVc,
     part: Option<ModulePartVc>,
 ) -> Result<AnalyzeEcmascriptModuleResultVc> {
     let mut analysis = AnalyzeEcmascriptModuleResultBuilder::new();
@@ -278,11 +276,11 @@ pub(crate) async fn analyze_ecmascript_module(
     };
 
     let parsed = if let Some(part) = part {
-        let parsed = parse(source, ty, transforms);
+        let parsed = parse(source, ty, options.transforms);
         let split_data = split(path, parsed);
         part_of_module(split_data, part)
     } else {
-        parse(source, ty, transforms)
+        parse(source, ty, options.transforms)
     };
 
     match &*find_context_file(path.parent(), package_json()).await? {
