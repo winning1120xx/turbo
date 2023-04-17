@@ -18,7 +18,7 @@ use css::{CssModuleAssetVc, ModuleCssModuleAssetVc};
 use ecmascript::{
     tree_shake::asset::EcmascriptModulePartAssetVc,
     typescript::resolve::TypescriptTypesAssetReferenceVc, EcmascriptModuleAssetType,
-    EcmascriptModuleAssetVc,
+    EcmascriptModuleAssetVc, EcmascriptOptions,
 };
 use graph::{aggregate, AggregatedGraphNodeContent, AggregatedGraphVc};
 use lazy_static::lazy_static;
@@ -122,9 +122,7 @@ async fn apply_module_type(
                 source,
                 context.into(),
                 Value::new(EcmascriptModuleAssetType::Ecmascript),
-                *transforms,
                 Value::new(*options),
-                context.compile_time_info(),
             );
 
             if options.split_into_parts {
@@ -141,27 +139,36 @@ async fn apply_module_type(
             source,
             context.into(),
             Value::new(EcmascriptModuleAssetType::Typescript),
-            *transforms,
-            Value::new(Default::default()),
-            context.compile_time_info(),
+            Value::new(EcmascriptOptions {
+                split_into_parts: false,
+                import_parts: false,
+                transforms: *transforms,
+                compile_time_info: context.compile_time_info(),
+            }),
         )
         .into(),
         ModuleType::TypescriptWithTypes(transforms) => EcmascriptModuleAssetVc::new(
             source,
             context.with_types_resolving_enabled().into(),
             Value::new(EcmascriptModuleAssetType::TypescriptWithTypes),
-            *transforms,
-            Value::new(Default::default()),
-            context.compile_time_info(),
+            Value::new(EcmascriptOptions {
+                split_into_parts: false,
+                import_parts: false,
+                transforms: *transforms,
+                compile_time_info: context.compile_time_info(),
+            }),
         )
         .into(),
         ModuleType::TypescriptDeclaration(transforms) => EcmascriptModuleAssetVc::new(
             source,
             context.with_types_resolving_enabled().into(),
             Value::new(EcmascriptModuleAssetType::TypescriptDeclaration),
-            *transforms,
-            Value::new(Default::default()),
-            context.compile_time_info(),
+            Value::new(EcmascriptOptions {
+                split_into_parts: false,
+                import_parts: false,
+                transforms: *transforms,
+                compile_time_info: context.compile_time_info(),
+            }),
         )
         .into(),
         ModuleType::Json => JsonModuleAssetVc::new(source).into(),
