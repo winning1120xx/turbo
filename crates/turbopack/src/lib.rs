@@ -114,10 +114,7 @@ async fn apply_module_type(
     part: Option<ModulePartVc>,
 ) -> Result<AssetVc> {
     Ok(match &*module_type.await? {
-        ModuleType::Ecmascript {
-            transforms,
-            options,
-        } => {
+        ModuleType::Ecmascript { options } => {
             let base = EcmascriptModuleAssetVc::new(
                 source,
                 context.into(),
@@ -135,7 +132,7 @@ async fn apply_module_type(
 
             base.into()
         }
-        ModuleType::Typescript(transforms) => EcmascriptModuleAssetVc::new(
+        ModuleType::Typescript { options } => EcmascriptModuleAssetVc::new(
             source,
             context.into(),
             Value::new(EcmascriptModuleAssetType::Typescript),
