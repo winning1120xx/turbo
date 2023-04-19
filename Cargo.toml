@@ -45,6 +45,8 @@ members = [
   "crates/turborepo-lockfiles",
   "crates/turborepo-scm",
   "crates/turborepo-vercel-api-mock",
+  "crates/utils/signposter",
+  "crates/utils/signposter-sys",
   "xtask",
 ]
 
@@ -81,6 +83,8 @@ default-members = [
   "crates/turbopack-swc-utils",
   "crates/turbopack-test-utils",
   "crates/turbopack-tests",
+  "crates/utils/signposter",
+  "crates/utils/signposter-sys",
   "xtask",
 ]
 
@@ -107,6 +111,8 @@ testing = { version = "0.33.4" }
 
 auto-hash-map = { path = "crates/auto-hash-map" }
 node-file-trace = { path = "crates/node-file-trace", default-features = false }
+signposter = { path = "crates/utils/signposter" }
+signposter-sys = { path = "crates/utils/signposter-sys" }
 swc-ast-explorer = { path = "crates/swc-ast-explorer" }
 turbo-malloc = { path = "crates/turbo-malloc", default-features = false }
 turbo-tasks = { path = "crates/turbo-tasks" }
