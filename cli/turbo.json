@@ -3,12 +3,26 @@
   "extends": ["//"],
   "pipeline": {
     "build": {
-      "outputs": ["turbo", "turbo.exe"],
+      "outputs": [
+        "turbo",
+        "turbo.exe",
+        "../target/debug/**",
+        "../target/release/**"
+      ],
+
       "inputs": [
         "**/*.go",
-        "../crates/turborepo/",
-        "../crates/turbopath/",
-        "../crates/turborepo-*"
+        "**/*_test.go",
+
+        // Rust crates that should trigger a rebuild
+        "../crates/turborepo/**",
+        "../crates/turbopath/**",
+        "../crates/turborepo-*/**",
+
+        // Exclude target directories of everything specified above
+        "!../crates/turborepo/target/**",
+        "!../crates/turbopath/target/**",
+        "!../crates/turborepo-*/target/**"
       ]
     },
 
