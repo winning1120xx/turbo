@@ -37,7 +37,7 @@ pub enum EcmascriptInputTransform {
     ClientDirective(StringVc),
     ServerDirective(StringVc),
     CommonJs,
-    Custom(CustomTransformVc),
+    Plugin(TransformPluginVc),
     PresetEnv(EnvironmentVc),
     React {
         #[serde(default)]
@@ -81,7 +81,7 @@ pub trait CustomTransformer: Debug {
     fn transform(&self, program: &mut Program, ctx: &TransformContext<'_>) -> Option<Program>;
 }
 
-/// A wrapper around a CustomTransformer instance, allowing it to operate with
+/// A wrapper around a TransformPlugin instance, allowing it to operate with
 /// the turbo_task caching requirements.
 #[turbo_tasks::value(
     transparent,
@@ -91,9 +91,9 @@ pub trait CustomTransformer: Debug {
     cell = "new"
 )]
 #[derive(Debug)]
-pub struct CustomTransform(#[turbo_tasks(trace_ignore)] Box<dyn CustomTransformer + Send + Sync>);
+pub struct TransformPlugin(#[turbo_tasks(trace_ignore)] Box<dyn CustomTransformer + Send + Sync>);
 
-impl CustomTransformer for CustomTransform {
+impl CustomTransformer for TransformPlugin {
     fn transform(&self, program: &mut Program, ctx: &TransformContext<'_>) -> Option<Program> {
         self.0.transform(program, ctx)
     }
@@ -320,7 +320,7 @@ impl EcmascriptInputTransform {
                         .emit();
                 }
             }
-            EcmascriptInputTransform::Custom(transform) => {
+            EcmascriptInputTransform::Plugin(transform) => {
                 if let Some(output) = transform.await?.transform(program, ctx) {
                     *program = output;
                 }
