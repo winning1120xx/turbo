@@ -3,7 +3,13 @@
   "extends": ["//"],
   "pipeline": {
     "build": {
-      "outputs": ["turbo", "turbo.exe"]
+      "outputs": ["turbo", "turbo.exe"],
+      "inputs": [
+        "**/*.go",
+        "../crates/turborepo/",
+        "../crates/turbopath/",
+        "../crates/turborepo-*"
+      ]
     },
 
     "e2e": {
