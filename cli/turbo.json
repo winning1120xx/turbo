@@ -4,9 +4,13 @@
   "pipeline": {
     "build": {
       "outputs": [
+        // TODO: this gets moved over to ../target, can we omit this?
         "turbo",
+        // TODO: does this get moved over to ../target also? Can we omit this too?
         "turbo.exe",
+        // TODO: This is 7GB, do we want to ever even cache the debug build?
         "../target/debug/**",
+        // TODO: Do we need the whole directory? go-turbo and turbo are ~45mb, the whole directory is 800mb
         "../target/release/**"
       ],
 
